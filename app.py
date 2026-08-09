@@ -7,16 +7,13 @@ import base64
 st.set_page_config(page_title="MVS Supply Point", page_icon="📦", layout="wide")
 
 # --- GOOGLE SHEET CONNECTION ---
-# Aap ki sheet ka link yahan automatic set kar diya hai
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1tDHHQSs6Gdvcpy7rYcfNvaxJNHoe8ICjyN5YgMizRNg/edit?usp=sharing"
+SHEET_URL = "https://google.com"
 
-# Streamlit Connection Setup
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
     st.error(f"Database connection error: {e}")
 
-# Data Load Karne Ke Functions
 def load_users():
     try:
         return conn.read(spreadsheet=SHEET_URL, worksheet="users", ttl=0).astype(str)
@@ -54,7 +51,6 @@ if not st.session_state["logged_in"]:
     if st.button("Sign In"):
         with st.spinner("PIN Verify ho raha hai..."):
             users_df = load_users()
-            # Handle column names strictly as per user sheet casing
             u_col = "User Name" if "User Name" in users_df.columns else "username"
             p_col = "Pin" if "Pin" in users_df.columns else "pin"
             n_col = "Name" if "Name" in users_df.columns else "name"
@@ -83,6 +79,7 @@ else:
     # ==========================================
     if role == "Admin":
         st.title("👑 MVS Admin Master Dashboard")
+        st.info("💡 Yeh data direct Google Sheet se aa raha hai aur hamesha mahfooz rahega.")
         
         tab1, tab2, tab3 = st.tabs(["📊 Live Orders Monitor", "👤 Create Accounts", "⚙️ Manage Employees & PINs"])
         
@@ -94,11 +91,9 @@ else:
             else:
                 st.dataframe(orders_df, use_container_width=True)
                 
-                # Excel/CSV Export Option
                 csv_data = orders_df.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Download Full Excel Report", data=csv_data, file_name="MVS_Stock_Report.csv", mime="text/csv")
                 
-                # Show Uploaded Bill Photos if available
                 st.write("### 📷 Uploaded Bills Viewer")
                 for idx, row in orders_df.iterrows():
                     if pd.notna(row.get('bill_image')) and str(row['bill_image']).strip() != "":
@@ -150,7 +145,7 @@ else:
             
             for index, row in users_df.iterrows():
                 if row[r_col] != "Admin":
-                    col1, col2, col3 = st.columns([2, 2, 1])
+                    col1, col2, col3 = st.columns()
                     col1.write(f"👤 **{row[n_col]}** ({row[r_col]}) - User: {row[u_col]}")
                     new_ep_pin = col2.text_input(f"New PIN for {row[u_col]}", max_chars=4, key=f"pin_{row[u_col]}")
                     
@@ -186,7 +181,6 @@ else:
         city = st.text_input("Destination City / Customer Town")
         customer = st.text_input("Customer Name")
         
-        # 📸 Bill Photo Upload Option Added
         uploaded_bill = st.file_uploader("📷 Upload Bill Photo / Delivery Receipt", type=["jpg", "png", "jpeg"])
         bill_img_string = ""
         if uploaded_bill is not None:
@@ -199,3 +193,6 @@ else:
             else:
                 orders_df = load_orders()
                 new_order_row = {
+                    "bill_no": bill_no, "sku": sku, "qty": str(qty), "city": city, "customer": customer,
+                    "driver": sel_driver, "dispatched_by": st.session_state['user_fullname'],
+                    "status": "Out for Delivery", "variance": "Pending at City", "bill_image": bill_img_string
